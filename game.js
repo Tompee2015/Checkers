@@ -1,7 +1,8 @@
 const socket = io();
-const SIZE = 10;
 const DIRS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
 
+let SIZE = 10;
+let mandatoryCapture = true;
 let board = [];
 let turn = 'white';
 let myColor = 'white';
@@ -15,14 +16,18 @@ const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const messagesEl = document.getElementById('messages');
 const rematchBtn = document.getElementById('btn-rematch');
+const sizeSelect = document.getElementById('opt-size');
+const mandatoryCheckbox = document.getElementById('opt-mandatory');
 
 function initBoard() {
+  boardEl.style.gridTemplateColumns = `repeat(${SIZE}, 1fr)`;
+  const pieceRows = SIZE === 10 ? 4 : 3;
   board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
       if ((r + c) % 2 === 1) {
-        if (r < 4) board[r][c] = { color: 'black', king: false };
-        else if (r > 5) board[r][c] = { color: 'white', king: false };
+        if (r < pieceRows) board[r][c] = { color: 'black', king: false };
+        else if (r >= SIZE - pieceRows) board[r][c] = { color: 'white', king: false };
       }
     }
   }
@@ -86,7 +91,7 @@ function getPieceMoves(r, c, b = board) {
       }
     }
   }
-  return captures.length > 0 ? captures : steps;
+  return (mandatoryCapture && captures.length > 0) ? captures : [...captures, ...steps];
 }
 
 function getAllMoves(color, b = board) {
@@ -103,7 +108,7 @@ function getAllMoves(color, b = board) {
       }
     }
   }
-  return allCaptures.length > 0 ? allCaptures : allSteps;
+  return (mandatoryCapture && allCaptures.length > 0) ? allCaptures : [...allCaptures, ...allSteps];
 }
 
 function applyMove(move, isRemote = false) {
@@ -194,7 +199,7 @@ function handleSquareClick(r, c) {
       selected = [r, c];
       validMoves = pieceLegal;
       render();
-    } else {
+    } else if (mandatoryCapture) {
       statusEl.innerHTML = '⚠️ Mandatory capture! Select a piece that can capture.';
     }
   }
@@ -236,20 +241,44 @@ function addChat(sender, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+function readSelectedSettings() {
+  SIZE = parseInt(sizeSelect.value, 10);
+  mandatoryCapture = mandatoryCheckbox.checked;
+  return { size: SIZE, mandatory: mandatoryCapture };
+}
+
+// Live preview board when changing size before a game starts
+sizeSelect.onchange = () => {
+  if (!gameActive) {
+    readSelectedSettings();
+    initBoard();
+    gameActive = false;
+    rematchBtn.style.display = 'none';
+    statusEl.innerHTML = `Previewing <b>${SIZE}×${SIZE}</b> board. Click a mode to start!`;
+  }
+};
+
 // Button Listeners
 document.getElementById('btn-ai').onclick = () => {
+  readSelectedSettings();
   mode = 'ai';
   myColor = 'white';
   initBoard();
   checkGameOver();
-  addChat('System', 'Started 10x10 game vs Computer AI.');
+  addChat('System', `Started ${SIZE}×${SIZE} game vs AI (Mandatory Capture: ${mandatoryCapture ? 'ON' : 'OFF'}).`);
 };
 
 document.getElementById('btn-quick').onclick = () => socket.emit('quickMatch');
-document.getElementById('btn-create').onclick = () => socket.emit('createRoom');
+
+document.getElementById('btn-create').onclick = () => {
+  const settings = readSelectedSettings();
+  socket.emit('createRoom', settings);
+};
+
 document.getElementById('btn-join').onclick = () => {
   socket.emit('joinRoom', document.getElementById('room-input').value);
 };
+
 rematchBtn.onclick = () => {
   if (mode === 'ai') {
     initBoard();
@@ -273,24 +302,18 @@ function sendChat() {
 // Socket Events
 socket.on('waiting', (d) => { statusEl.textContent = d.message; });
 socket.on('roomCreated', (d) => {
-  statusEl.innerHTML = `Room Created! Share code: <b>${d.roomCode}</b> (Waiting for friend...)`;
+  const rulesText = `${d.settings.size}×${d.settings.size}, Mandatory Capture: ${d.settings.mandatory ? 'ON' : 'OFF'}`;
+  statusEl.innerHTML = `Room Created (<b>${d.roomCode}</b>) [${rulesText}] — Share code with your friend!`;
 });
 socket.on('errorMsg', (msg) => { statusEl.textContent = `❌ ${msg}`; });
 socket.on('gameStart', (d) => {
+  if (d.settings) {
+    SIZE = d.settings.size;
+    mandatoryCapture = d.settings.mandatory;
+    sizeSelect.value = String(SIZE);
+    mandatoryCheckbox.checked = mandatoryCapture;
+  }
   mode = 'online';
   myColor = d.color;
   initBoard();
   checkGameOver();
-  addChat('System', `Match started in room ${d.roomCode}! You are ${myColor.toUpperCase()}.`);
-});
-socket.on('opponentMove', (move) => applyMove(move, true));
-socket.on('chat', (d) => addChat(d.sender, d.text));
-socket.on('opponentLeft', () => {
-  gameActive = false;
-  statusEl.textContent = '⚠️ Opponent disconnected.';
-});
-
-// Draw initial empty board on load
-initBoard();
-gameActive = false;
-statusEl.innerHTML = 'Choose <b>Play vs Computer</b>, <b>Quick Match</b>, or <b>Create Room</b>!';

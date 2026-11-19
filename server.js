@@ -8,7 +8,6 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(__dirname));
 
 let quickMatchQueue = null;
 const rooms = {};
@@ -23,28 +22,28 @@ function generateRoomCode() {
 }
 
 io.on('connection', (socket) => {
-  // Quick Match (Defaults to 10x10, Mandatory Capture ON)
+  // Quick Match
   socket.on('quickMatch', () => {
     leaveCurrentRoom(socket);
     if (quickMatchQueue && quickMatchQueue.id !== socket.id && quickMatchQueue.connected) {
       const opponent = quickMatchQueue;
       quickMatchQueue = null;
       const roomCode = generateRoomCode();
-      setupRoom(roomCode, opponent, socket, { size: 10, mandatory: true });
+      setupRoom(roomCode, opponent, socket);
     } else {
       quickMatchQueue = socket;
       socket.emit('waiting', { message: 'Searching for an opponent...' });
     }
   });
 
-   // Create Private Room (with custom rules)
-  socket.on('createRoom', (settings = { size: 10, mandatory: true }) => {
+  // Create Private Room
+  socket.on('createRoom', () => {
     leaveCurrentRoom(socket);
     const roomCode = generateRoomCode();
-    rooms[roomCode] = { white: socket, black: null, rematchVotes: new Set(), settings };
+    rooms[roomCode] = { white: socket, black: null, rematchVotes: new Set() };
     socket.join(roomCode);
     socket.roomCode = roomCode;
-    socket.emit('roomCreated', { roomCode, settings });
+    socket.emit('roomCreated', { roomCode });
   });
 
   // Join Private Room
@@ -58,8 +57,9 @@ io.on('connection', (socket) => {
       return socket.emit('errorMsg', 'Room is already full.');
     }
     leaveCurrentRoom(socket);
-    setupRoom(roomCode, room.white, socket, room.settings);
+    setupRoom(roomCode, room.white, socket);
   });
+
   // Relay Move
   socket.on('move', (data) => {
     if (socket.roomCode) {
@@ -77,8 +77,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Rematch (Keeps room's custom rules and swaps colors)
-    // Rematch
+  // Rematch
   socket.on('rematch', () => {
     const room = rooms[socket.roomCode];
     if (!room || !room.white || !room.black) return;
@@ -95,8 +94,8 @@ io.on('connection', (socket) => {
       room.black = oldWhite;
       room.white.color = 'white';
       room.black.color = 'black';
-      room.white.emit('gameStart', { roomCode: socket.roomCode, color: 'white', settings: room.settings });
-      room.black.emit('gameStart', { roomCode: socket.roomCode, color: 'black', settings: room.settings });
+      room.white.emit('gameStart', { roomCode: socket.roomCode, color: 'white' });
+      room.black.emit('gameStart', { roomCode: socket.roomCode, color: 'black' });
     }
   });
 
@@ -108,8 +107,8 @@ io.on('connection', (socket) => {
   });
 });
 
-function setupRoom(roomCode, whiteSocket, blackSocket, settings = { size: 10, mandatory: true }) {
-  rooms[roomCode] = { white: whiteSocket, black: blackSocket, rematchVotes: new Set(), settings };
+function setupRoom(roomCode, whiteSocket, blackSocket) {
+  rooms[roomCode] = { white: whiteSocket, black: blackSocket, rematchVotes: new Set() };
   whiteSocket.join(roomCode);
   blackSocket.join(roomCode);
   whiteSocket.roomCode = roomCode;
@@ -117,10 +116,9 @@ function setupRoom(roomCode, whiteSocket, blackSocket, settings = { size: 10, ma
   whiteSocket.color = 'white';
   blackSocket.color = 'black';
 
-  whiteSocket.emit('gameStart', { roomCode, color: 'white', settings });
-  blackSocket.emit('gameStart', { roomCode, color: 'black', settings });
+  whiteSocket.emit('gameStart', { roomCode, color: 'white' });
+  blackSocket.emit('gameStart', { roomCode, color: 'black' });
 }
-
 
 function leaveCurrentRoom(socket) {
   const code = socket.roomCode;
@@ -134,5 +132,5 @@ function leaveCurrentRoom(socket) {
 
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Draughts server running on port ${PORT}`);
+  console.log(`10x10 Draughts server running on port ${PORT}`);
 });

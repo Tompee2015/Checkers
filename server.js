@@ -37,7 +37,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Create Private Room with Custom Rules
+   // Create Private Room (with custom rules)
   socket.on('createRoom', (settings = { size: 10, mandatory: true }) => {
     leaveCurrentRoom(socket);
     const roomCode = generateRoomCode();
@@ -60,7 +60,6 @@ io.on('connection', (socket) => {
     leaveCurrentRoom(socket);
     setupRoom(roomCode, room.white, socket, room.settings);
   });
-
   // Relay Move
   socket.on('move', (data) => {
     if (socket.roomCode) {
@@ -79,6 +78,7 @@ io.on('connection', (socket) => {
   });
 
   // Rematch (Keeps room's custom rules and swaps colors)
+    // Rematch
   socket.on('rematch', () => {
     const room = rooms[socket.roomCode];
     if (!room || !room.white || !room.black) return;
@@ -89,6 +89,7 @@ io.on('connection', (socket) => {
     });
     if (room.rematchVotes.size >= 2) {
       room.rematchVotes.clear();
+      // Swap colors on rematch
       const oldWhite = room.white;
       room.white = room.black;
       room.black = oldWhite;
@@ -119,6 +120,7 @@ function setupRoom(roomCode, whiteSocket, blackSocket, settings = { size: 10, ma
   whiteSocket.emit('gameStart', { roomCode, color: 'white', settings });
   blackSocket.emit('gameStart', { roomCode, color: 'black', settings });
 }
+
 
 function leaveCurrentRoom(socket) {
   const code = socket.roomCode;

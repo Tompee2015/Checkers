@@ -238,20 +238,33 @@ function addChat(sender, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+function readSelectedSettings() {
+  SIZE = parseInt(document.getElementById('opt-size').value, 10);
+  mandatoryCapture = document.getElementById('opt-mandatory').checked;
+  return { size: SIZE, mandatory: mandatoryCapture };
+}
+
 // Button Listeners
 document.getElementById('btn-ai').onclick = () => {
+  readSelectedSettings();
   mode = 'ai';
   myColor = 'white';
   initBoard();
   checkGameOver();
-  addChat('System', 'Started 10x10 game vs Computer AI.');
+  addChat('System', `Started ${SIZE}x${SIZE} game vs Computer AI (Mandatory Capture: ${mandatoryCapture ? 'ON' : 'OFF'}).`);
 };
 
 document.getElementById('btn-quick').onclick = () => socket.emit('quickMatch');
-document.getElementById('btn-create').onclick = () => socket.emit('createRoom');
+
+document.getElementById('btn-create').onclick = () => {
+  const settings = readSelectedSettings();
+  socket.emit('createRoom', settings);
+};
+
 document.getElementById('btn-join').onclick = () => {
   socket.emit('joinRoom', document.getElementById('room-input').value);
 };
+
 rematchBtn.onclick = () => {
   if (mode === 'ai') {
     initBoard();
@@ -279,11 +292,17 @@ socket.on('roomCreated', (d) => {
 });
 socket.on('errorMsg', (msg) => { statusEl.textContent = `❌ ${msg}`; });
 socket.on('gameStart', (d) => {
+  if (d.settings) {
+    SIZE = d.settings.size;
+    mandatoryCapture = d.settings.mandatory;
+    document.getElementById('opt-size').value = String(SIZE);
+    document.getElementById('opt-mandatory').checked = mandatoryCapture;
+  }
   mode = 'online';
   myColor = d.color;
   initBoard();
   checkGameOver();
-  addChat('System', `Match started in room ${d.roomCode}! You are ${myColor.toUpperCase()}.`);
+  addChat('System', `Match started in room ${d.roomCode} (${SIZE}x${SIZE}, Mandatory Capture: ${mandatoryCapture ? 'ON' : 'OFF'})! You are ${myColor.toUpperCase()}.`);
 });
 socket.on('opponentMove', (move) => applyMove(move, true));
 socket.on('chat', (d) => addChat(d.sender, d.text));

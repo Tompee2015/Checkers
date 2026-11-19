@@ -1,187 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Draughts Online</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 16px; }
-  h1 { margin-bottom: 10px; font-size: 1.3rem; }
-  .lobby { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; justify-content: center; }
-  .lobby button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
-  .btn-qm { background: #4ecdc4; color: #000; }
-  .btn-create { background: #45b7d1; color: #000; }
-  .btn-join { background: #ff6b6b; color: #fff; }
-  .lobby input { padding: 8px; border-radius: 4px; border: none; width: 80px; text-transform: uppercase; }
-  #status { margin-bottom: 10px; font-size: 0.85rem; color: #aaa; min-height: 1.2em; text-align: center; }
-  .game-area { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
-  #board { display: grid; grid-template-columns: repeat(8, min(52px, 10vw)); grid-template-rows: repeat(8, min(52px, 10vw)); border: 3px solid #333; }
-  .sq { display: flex; align-items: center; justify-content: center; cursor: pointer; aspect-ratio: 1; }
-  .sq.light { background: #f0d9b5; }
-  .sq.dark { background: #b58863; }
-  .sq.selected { outline: 3px solid #4ecdc4; outline-offset: -3px; }
-  .sq.valid { position: relative; }
-  .sq.valid::after { content: ''; width: 12px; height: 12px; background: rgba(78,205,196,0.6); border-radius: 50%; position: absolute; }
-  .piece { width: 75%; height: 75%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; }
-  .piece.w { background: #fff; border: 2px solid #ccc; color: #333; }
-  .piece.b { background: #222; border: 2px solid #555; color: #eee; }
-  .piece.k::after { content: '♛'; }
-  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; justify-content: center; }
-  .actions button { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
-  #rematch { background: #4ecdc4; color: #000; display: none; }
-  /* Chat */
-  #chat-box { width: 200px; background: #16213e; border-radius: 8px; padding: 10px; display: none; flex-direction: column; }
-  #chat-box h3 { font-size: 0.8rem; color: #888; margin-bottom: 6px; }
-  #chat-msgs { flex: 1; height: 180px; overflow-y: auto; font-size: 0.8rem; margin-bottom: 8px; }
-  #chat-msgs .msg { margin-bottom: 4px; }
-  #chat-msgs .msg .who { color: #4ecdc4; font-weight: 600; }
-  #chat-input-row { display: flex; gap: 4px; }
-  #chat-input { flex: 1; padding: 6px; border: none; border-radius: 4px; background: #0f3460; color: #eee; font-size: 0.8rem; }
-  #chat-send { padding: 6px 10px; border: none; border-radius: 4px; background: #4ecdc4; color: #000; font-weight: 600; cursor: pointer; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>10x10 Draughts Online</title>
+  <style>
+    :root {
+      --bg: #12161f;
+      --panel: #1c2230;
+      --accent: #f59e0b;
+      --light-sq: #e8d5b5;
+      --dark-sq: #6b4423;
+      --text: #f3f4f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 12px; }
+    h1 { font-size: 1.5rem; margin-bottom: 10px; color: var(--accent); }
+    .ad-slot { width: 100%; max-width: 728px; min-height: 50px; background: #181d28; border: 1px dashed #334155; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.75rem; margin: 8px 0; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+    button { background: var(--accent); color: #111; border: none; padding: 9px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; transition: 0.15s; }
+    button:hover { opacity: 0.9; }
+    button.secondary { background: #334155; color: #fff; }
+    input { padding: 9px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; width: 120px; text-transform: uppercase; }
+    #status { background: var(--panel); padding: 8px 16px; border-radius: 20px; font-size: 0.95rem; margin-bottom: 12px; text-align: center; }
+    .main-layout { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; width: 100%; max-width: 960px; }
+    #board { display: grid; grid-template-columns: repeat(10, 1fr); width: min(92vw, 480px); height: min(92vw, 480px); border: 4px solid #3d2511; border-radius: 4px; overflow: hidden; }
+    .sq { display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+    .sq.light { background: var(--light-sq); }
+    .sq.dark { background: var(--dark-sq); }
+    .sq.highlight::after { content: ''; width: 32%; height: 32%; background: rgba(34, 197, 94, 0.85); border-radius: 50%; }
+    .piece { width: 78%; height: 78%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 3px 6px rgba(0,0,0,0.5); transition: transform 0.1s; }
+    .piece.white { background: radial-gradient(circle at 30% 30%, #ffffff, #cbd5e1); border: 2px solid #94a3b8; color: #1e293b; }
+    .piece.black { background: radial-gradient(circle at 30% 30%, #334155, #090d16); border: 2px solid #475569; color: #fbbf24; }
+    .piece.selected { outline: 3px solid #22c55e; transform: scale(1.08); }
+    .piece.king::after { content: '♛'; font-size: 1.2rem; }
+    .chat-box { background: var(--panel); width: min(92vw, 320px); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; height: 480px; }
+    .chat-box h3 { font-size: 1rem; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 6px; }
+    #messages { flex: 1; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    .msg { background: #0f172a; padding: 6px 8px; border-radius: 6px; word-break: break-word; }
+    .chat-input { display: flex; gap: 6px; }
+    .chat-input input { flex: 1; text-transform: none; }
+  </style>
 </head>
 <body>
-<h1>♟ Draughts Online</h1>
-<div class="lobby">
-  <button class="btn-qm" onclick="quickMatch()">⚡ Quick Match</button>
-  <button class="btn-create" onclick="createRoom()">Create</button>
-  <input id="roomCode" placeholder="CODE" maxlength="4">
-  <button class="btn-join" onclick="joinRoom()">Join</button>
-</div>
-<div id="status">Press Quick Match or Create to start.</div>
+  <h1>♟ 10x10 Draughts Online</h1>
 
-<div class="game-area">
-  <div>
+  <!-- Reserved Ad Slot (Top) -->
+  <div id="ad-banner-top" class="ad-slot">Ad Space Ready (728x90)</div>
+
+  <div class="controls">
+    <button id="btn-ai">🤖 Play vs Computer</button>
+    <button id="btn-quick">⚡ Quick Match</button>
+    <button id="btn-create" class="secondary">➕ Create Room</button>
+    <input id="room-input" placeholder="ROOM CODE" maxlength="5" />
+    <button id="btn-join" class="secondary">Join</button>
+    <button id="btn-rematch" class="secondary" style="display:none;">🔄 Rematch</button>
+  </div>
+
+  <div id="status">Choose <b>Play vs Computer</b>, <b>Quick Match</b>, or <b>Create Room</b>!</div>
+
+  <div class="main-layout">
     <div id="board"></div>
-    <div class="actions">
-      <button id="rematch" onclick="rematch()">Rematch</button>
+
+    <div class="chat-box">
+      <h3>💬 Live Chat</h3>
+      <div id="messages"></div>
+      <div class="chat-input">
+        <input id="chat-msg" placeholder="Say something..." maxlength="200" />
+        <button id="btn-send">Send</button>
+      </div>
     </div>
   </div>
-  <div id="chat-box">
-    <h3>💬 Chat</h3>
-    <div id="chat-msgs"></div>
-    <div id="chat-input-row">
-      <input id="chat-input" placeholder="Say hi..." maxlength="100">
-      <button id="chat-send" onclick="sendChat()">→</button>
-    </div>
-  </div>
-</div>
 
-<script>
-let ws, mySide = null, board = null, selected = null, validMoves = [], gameOver = false;
+  <!-- Reserved Ad Slot (Bottom) -->
+  <div id="ad-banner-bottom" class="ad-slot">Ad Space Ready (Responsive)</div>
 
-function connect() {
-  ws = new WebSocket(`ws://${location.host}`);
-  ws.onmessage = (e) => handle(JSON.parse(e.data));
-  ws.onclose = () => setStatus('Disconnected. Refresh to reconnect.');
-}
-function send(obj) { if (ws) ws.send(JSON.stringify(obj)); }
-function quickMatch() { send({ type: 'quickmatch' }); }
-function createRoom() { send({ type: 'create' }); }
-function joinRoom() { const c = document.getElementById('roomCode').value.trim(); if (c) send({ type: 'join', room: c }); }
-function rematch() { send({ type: 'rematch' }); document.getElementById('rematch').style.display = 'none'; }
-
-// --- CHAT ---
-function sendChat() {
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
-  send({ type: 'chat', text });
-  input.value = '';
-}
-document.getElementById('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
-
-function addChat(who, text) {
-  const el = document.getElementById('chat-msgs');
-  el.innerHTML += `<div class="msg"><span class="who">${who}:</span> ${text}</div>`;
-  el.scrollTop = el.scrollHeight;
-}
-
-// --- HANDLERS ---
-function handle(msg) {
-  if (msg.type === 'queued') setStatus(`In queue... position #${msg.position}`);
-  if (msg.type === 'leftqueue') setStatus('Left queue.');
-  if (msg.type === 'joined') {
-    mySide = msg.side; board = msg.board; gameOver = false;
-    document.getElementById('roomCode').value = msg.room;
-    document.getElementById('chat-box').style.display = 'flex';
-    setStatus(`You are ${mySide === 'w' ? '⚪ White' : '⚫ Black'}. Room: ${msg.room}`);
-    render();
-  }
-  if (msg.type === 'opponent_joined') setStatus('Opponent found! ' + (mySide === 'w' ? 'Your turn' : 'Waiting for White...'));
-  if (msg.type === 'opponent_left') { setStatus('Opponent left.'); gameOver = true; render(); }
-  if (msg.type === 'error') setStatus(msg.msg);
-  if (msg.type === 'chat') addChat(msg.from, msg.text);
-  if (msg.type === 'state') {
-    board = msg.board; selected = null; validMoves = [];
-    gameOver = msg.over;
-    if (gameOver) {
-      setStatus(`🏆 ${msg.winner === 'w' ? 'White' : 'Black'} wins!`);
-      document.getElementById('rematch').style.display = 'inline-block';
-    } else {
-      setStatus(msg.turn === mySide ? 'Your turn!' : 'Waiting for opponent...');
-    }
-    render();
-  }
-}
-
-function setStatus(t) { document.getElementById('status').textContent = t; }
-
-function getValidMoves(r, c) {
-  const piece = board[r][c];
-  if (!piece) return [];
-  const isKing = piece.length === 2;
-  const dirs = [];
-  if (piece[0] === 'w') dirs.push(-1); else dirs.push(1);
-  if (isKing) dirs.push(...(dirs.includes(-1) ? [1] : [-1]));
-  const moves = [];
-  for (const dr of [...new Set(dirs)])
-    for (const dc of [-1, 1]) {
-      const nr = r + dr, nc = c + dc;
-      if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue;
-      if (!board[nr][nc]) moves.push({ to: [nr, nc] });
-      else if (board[nr][nc][0] !== piece[0]) {
-        const jr = nr + dr, jc = nc + dc;
-        if (jr >= 0 && jr <= 7 && jc >= 0 && jc <= 7 && !board[jr][jc]) moves.push({ to: [jr, jc] });
-      }
-    }
-  return moves;
-}
-
-function onSquareClick(r, c) {
-  if (gameOver || !board) return;
-  if (selected) {
-    const move = validMoves.find(m => m.to[0] === r && m.to[1] === c);
-    if (move) { send({ type: 'move', r: selected[0], c: selected[1], to: [r, c] }); selected = null; validMoves = []; return; }
-  }
-  if (board[r][c] && board[r][c][0] === mySide[0]) {
-    selected = [r, c];
-    validMoves = getValidMoves(r, c);
-  } else { selected = null; validMoves = []; }
-  render();
-}
-
-function render() {
-  const el = document.getElementById('board');
-  el.innerHTML = '';
-  for (let r = 0; r < 8; r++)
-    for (let c = 0; c < 8; c++) {
-      const sq = document.createElement('div');
-      sq.className = 'sq ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
-      if (selected && selected[0] === r && selected[1] === c) sq.classList.add('selected');
-      if (validMoves.some(m => m.to[0] === r && m.to[1] === c)) sq.classList.add('valid');
-      if (board && board[r][c]) {
-        const p = document.createElement('div');
-        p.className = 'piece ' + board[r][c][0] + (board[r][c].length === 2 ? ' k' : '');
-        sq.appendChild(p);
-      }
-      sq.onclick = () => onSquareClick(r, c);
-      el.appendChild(sq);
-    }
-}
-
-connect();
-</script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
 </body>
-</html>   
+</html>

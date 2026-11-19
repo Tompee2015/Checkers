@@ -24,7 +24,7 @@
     button { background: var(--accent); color: #111; border: none; padding: 9px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; transition: 0.15s; }
     button:hover { opacity: 0.9; }
     button.secondary { background: #334155; color: #fff; }
-    input[type="text"], #room-input { padding: 9px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; width: 120px; text-transform: uppercase; }
+    #room-input { padding: 9px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; width: 120px; text-transform: uppercase; }
     #status { background: var(--panel); padding: 8px 16px; border-radius: 20px; font-size: 0.95rem; margin-bottom: 12px; text-align: center; }
     .main-layout { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; width: 100%; max-width: 960px; }
     #board { display: grid; grid-template-columns: repeat(10, 1fr); width: min(92vw, 480px); height: min(92vw, 480px); border: 4px solid #3d2511; border-radius: 4px; overflow: hidden; }
@@ -42,16 +42,14 @@
     #messages { flex: 1; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
     .msg { background: #0f172a; padding: 6px 8px; border-radius: 6px; word-break: break-word; }
     .chat-input { display: flex; gap: 6px; }
-    .chat-input input { flex: 1; text-transform: none; }
+    .chat-input input { flex: 1; padding: 9px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; }
   </style>
 </head>
 <body>
   <h1>♟ Draughts Online</h1>
 
-  <!-- Reserved Ad Slot (Top) -->
   <div id="ad-banner-top" class="ad-slot">Ad Space Ready (728x90)</div>
 
-  <!-- Custom Game Rules Bar -->
   <div class="settings-bar">
     <label>Board Size:
       <select id="opt-size">
@@ -89,10 +87,146 @@
     </div>
   </div>
 
-  <!-- Reserved Ad Slot (Bottom) -->
   <div id="ad-banner-bottom" class="ad-slot">Ad Space Ready (Responsive)</div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="game.js"></script>
-</body>
-</html>
+  <script>
+    const socket = io();
+    const DIRS = [
+      { dr: -1, dc: -1 },
+      { dr: -1, dc: 1 },
+      { dr: 1, dc: -1 },
+      { dr: 1, dc: 1 }
+    ];
+
+    let SIZE = 10;
+    let mandatoryCapture = true;
+    let board = [];
+    let turn = 'white';
+    let myColor = 'white';
+    let mode = null;
+    let gameActive = false;
+    let selected = null;
+    let validMoves = [];
+    let mustContinueFrom = null;
+
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const messagesEl = document.getElementById('messages');
+    const rematchBtn = document.getElementById('btn-rematch');
+    const sizeSelect = document.getElementById('opt-size');
+    const mandatoryCheckbox = document.getElementById('opt-mandatory');
+
+    function initBoard() {
+      boardEl.style.gridTemplateColumns = 'repeat(' + SIZE + ', 1fr)';
+      const pieceRows = SIZE === 10 ? 4 : 3;
+      board = [];
+      for (let r = 0; r < SIZE; r++) {
+        const row = [];
+        for (let c = 0; c < SIZE; c++) {
+          if ((r + c) % 2 === 1) {
+            if (r < pieceRows) row.push({ color: 'black', king: false });
+            else if (r >= SIZE - pieceRows) row.push({ color: 'white', king: false });
+            else row.push(null);
+          } else {
+            row.push(null);
+          }
+        }
+        board.push(row);
+      }
+      turn = 'white';
+      selected = null;
+      validMoves = [];
+      mustContinueFrom = null;
+      gameActive = true;
+      rematchBtn.style.display = 'inline-block';
+      render();
+    }
+
+    function inBounds(r, c) {
+      return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+    }
+
+    function getPieceMoves(r, c) {
+      const p = board[r][c];
+      if (!p) return [];
+      const captures = [];
+      const steps = [];
+
+      if (!p.king) {
+        const forwardDirs = p.color === 'white'
+          ? [{ dr: -1, dc: -1 }, { dr: -1, dc: 1 }]
+          : [{ dr: 1, dc: -1 }, { dr: 1, dc: 1 }];
+
+        for (const d of forwardDirs) {
+          const nr = r + d.dr, nc = c + d.dc;
+          if (inBounds(nr, nc) && !board[nr][nc]) {
+            steps.push({ fromR: r, fromC: c, toR: nr, toC: nc, capR: null, capC: null });
+          }
+        }
+        for (const d of DIRS) {
+          const mr = r + d.dr, mc = c + d.dc;
+          const lr = r + d.dr * 2, lc = c + d.dc * 2;
+          if (inBounds(lr, lc) && board[mr][mc] && board[mr][mc].color !== p.color && !board[lr][lc]) {
+            captures.push({ fromR: r, fromC: c, toR: lr, toC: lc, capR: mr, capC: mc });
+          }
+        }
+      } else {
+        for (const d of DIRS) {
+          let nr = r + d.dr, nc = c + d.dc;
+          let enemyR = null, enemyC = null;
+          while (inBounds(nr, nc)) {
+            const cell = board[nr][nc];
+            if (!cell) {
+              if (enemyR === null) {
+                steps.push({ fromR: r, fromC: c, toR: nr, toC: nc, capR: null, capC: null });
+              } else {
+                captures.push({ fromR: r, fromC: c, toR: nr, toC: nc, capR: enemyR, capC: enemyC });
+              }
+            } else if (cell.color === p.color) {
+              break;
+            } else {
+              if (enemyR !== null) break;
+              enemyR = nr;
+              enemyC = nc;
+            }
+            nr += d.dr;
+            nc += d.dc;
+          }
+        }
+      }
+      return (mandatoryCapture && captures.length > 0) ? captures : captures.concat(steps);
+    }
+
+    function getAllMoves(color) {
+      let allCaptures = [];
+      let allSteps = [];
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (board[r][c] && board[r][c].color === color) {
+            const moves = getPieceMoves(r, c);
+            for (const m of moves) {
+              if (m.capR !== null) allCaptures.push(m);
+              else allSteps.push(m);
+            }
+          }
+        }
+      }
+      return (mandatoryCapture && allCaptures.length > 0) ? allCaptures : allCaptures.concat(allSteps);
+    }
+
+    function applyMove(move, isRemote) {
+      const piece = board[move.fromR][move.fromC];
+      board[move.toR][move.toC] = piece;
+      board[move.fromR][move.fromC] = null;
+
+      if (move.capR !== null) {
+        board[move.capR][move.capC] = null;
+      }
+
+      let canJumpAgain = false;
+      if (move.capR !== null) {
+        const nextMoves = getPieceMoves(move.toR, move.toC).filter(m => m.capR !== null);
+        if (nextMoves.length > 0) {
+          canJumpAgain = true;
+          mustContinueFrom = { r: move.toR, c: move.toC };

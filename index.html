@@ -62,7 +62,18 @@
       Mandatory Capture
     </label>
   </div>
-
+  <div class="controls" style="background: var(--panel); padding: 8px 14px; border-radius: 8px;">
+    <label>Board:
+      <select id="opt-size" style="padding: 6px; border-radius: 5px; background: #0f172a; color: #fff; border: 1px solid #334155;">
+        <option value="10" selected>10×10 (International/Ghana)</option>
+        <option value="8">8×8 (Classic)</option>
+      </select>
+    </label>
+    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+      <input type="checkbox" id="opt-mandatory" checked style="width: auto;" />
+      Mandatory Capture
+    </label>
+  </div>
   <div class="controls">
     <button id="btn-ai">🤖 Play vs Computer</button>
     <button id="btn-quick">⚡ Quick Match</button>
